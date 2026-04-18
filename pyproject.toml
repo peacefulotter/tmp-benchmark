@@ -1,0 +1,51 @@
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "benchmark"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.6",
+    "nvidia-ml-py>=13.595.45",
+    "pandas>=2.3.3",
+    "psutil>=7.2.2",
+    "pyarrow>=23.0.1",
+    "pytest>=9.0.3",
+    "rich>=15.0.0",
+    "scikit-learn>=1.7.2",
+    "torch==2.9.1",
+    "tqdm>=4.67.3",
+]
+
+[dependency-groups]
+dev = ["poethepoet>=0.44.0"]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+]
+torchvision = [
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+
+[tool.poe.tasks]
+bench = "uv run --frozen src/benchmark/bench/run_all.py"
+dashboard = "uv run --frozen src/benchmark/dashboard/generate.py"

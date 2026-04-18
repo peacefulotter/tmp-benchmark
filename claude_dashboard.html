@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dataiku Hardware Benchmark</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0d0f; --bg1:#111114; --bg2:#17171b; --bg3:#1e1e24;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+  --text:#e8e8ec; --text2:#9090a0; --text3:#52525e;
+  --accent:#5b8fff; --accent2:#3d6eea;
+  --green:#34c98a; --amber:#f5a524; --red:#f04f4f;
+  --dataiku:#ff6b35; --dataiku-soft:rgba(255,107,53,0.12); --dataiku-border:rgba(255,107,53,0.35);
+  --red-soft:rgba(240,79,79,0.12); --amber-soft:rgba(245,165,36,0.12);
+  --green-soft:rgba(52,201,138,0.12); --blue-soft:rgba(91,143,255,0.12);
+  --mono:'JetBrains Mono',monospace; --sans:'Syne',sans-serif;
+  --radius:10px; --radius-lg:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:248px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;min-width:0;padding:32px 36px 80px}
+.logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.logo-title{font-family:var(--sans);font-size:15px;font-weight:800;letter-spacing:-0.02em}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.nav-section{padding:14px 12px 6px}
+.nav-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:12px;transition:all .15s;text-decoration:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--blue-soft);color:var(--accent)}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.runs-list{padding:0 12px;flex:1}
+.run-entry{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);margin-bottom:4px;cursor:pointer;transition:background .15s;border:1px solid transparent}
+.run-entry:hover{background:var(--bg3)}
+.run-entry.active{background:var(--bg3);border-color:var(--border2)}
+.run-entry.is-dataiku{border-left:3px solid var(--dataiku)}
+.run-swatch{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.run-name{font-size:11px;color:var(--text);line-height:1.3;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run-meta{font-size:10px;color:var(--text3);margin-top:1px}
+.run-toggle{width:28px;height:16px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.run-toggle.on{background:var(--accent2);border-color:var(--accent)}
+.run-toggle.on.dtog{background:var(--dataiku)}
+.run-toggle::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--text2);transition:transform .2s,background .2s}
+.run-toggle.on::after{transform:translateX(12px);background:#fff}
+.import-zone{margin:12px;border:1px dashed var(--border2);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all .15s}
+.import-zone:hover{border-color:var(--accent);background:var(--blue-soft)}
+.import-zone-title{font-size:11px;color:var(--text2);margin-bottom:4px}
+.import-zone-sub{font-size:10px;color:var(--text3);line-height:1.5}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;gap:20px}
+.page-title{font-family:var(--sans);font-size:26px;font-weight:800;letter-spacing:-0.03em;line-height:1.1}
+.page-title .dk{color:var(--dataiku)}
+.page-desc{font-size:12px;color:var(--text2);margin-top:6px;max-width:520px}
+.header-actions{display:flex;gap:8px;flex-shrink:0;align-items:flex-start}
+.btn{padding:8px 16px;border-radius:var(--radius);font-family:var(--mono);font-size:11px;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-soft)}
+.btn-primary{background:var(--accent2);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 40px;text-align:center;gap:16px}
+.empty-icon{width:56px;height:56px;border-radius:16px;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center}
+.empty-icon svg{width:24px;height:24px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-title{font-family:var(--sans);font-size:18px;font-weight:700;color:var(--text)}
+.empty-body{font-size:12px;color:var(--text2);max-width:440px;line-height:1.7}
+.code-block{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 18px;font-family:var(--mono);font-size:11px;color:var(--text2);text-align:left;max-width:520px;line-height:2}
+.code-block .cm{color:var(--text3)}.code-block .cv{color:var(--accent)}.code-block .cs{color:var(--green)}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s}
+.kpi-card:hover{border-color:var(--border2)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0}
+.kpi-card.ck-green::before{background:var(--green)}.kpi-card.ck-blue::before{background:var(--accent)}.kpi-card.ck-amber::before{background:var(--amber)}.kpi-card.ck-red::before{background:var(--red)}.kpi-card.ck-dk::before{background:var(--dataiku)}
+.kpi-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.kpi-val{font-family:var(--sans);font-size:28px;font-weight:800;letter-spacing:-0.03em;color:var(--text);line-height:1}
+.kpi-sub{font-size:10px;color:var(--text2);margin-top:5px}
+.kpi-delta{font-size:11px;font-weight:500;margin-top:5px}
+.d-good{color:var(--green)}.d-bad{color:var(--red)}.d-neu{color:var(--text3)}
+.dk-banner{background:var(--dataiku-soft);border:1px solid var(--dataiku-border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:24px;display:flex;gap:20px;align-items:flex-start}
+.dk-banner-icon{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,107,53,0.2);border:1px solid var(--dataiku-border);display:flex;align-items:center;justify-content:center}
+.dk-banner-icon svg{width:18px;height:18px;stroke:var(--dataiku);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dk-banner-title{font-family:var(--sans);font-size:14px;font-weight:700;color:var(--dataiku);margin-bottom:6px}
+.dk-banner-body{font-size:12px;color:#ffb89a;line-height:1.6}
+.dk-hw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.dk-chip{font-size:10px;padding:3px 9px;border-radius:4px;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.3);color:#ff9d72;letter-spacing:.04em}
+.dk-chip.bad{background:rgba(240,79,79,0.15);border-color:rgba(240,79,79,0.3);color:#f37878}
+.dk-chip.ok{background:rgba(52,201,138,0.1);border-color:rgba(52,201,138,0.25);color:var(--green)}
+.regression-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:20px}
+.reg-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;transition:border-color .2s}
+.reg-card:hover{border-color:var(--border2)}
+.reg-card.rc-crit{border-left:3px solid var(--red)}.reg-card.rc-high{border-left:3px solid var(--amber)}.reg-card.rc-ok{border-left:3px solid var(--green)}
+.reg-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.reg-stage{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text)}
+.reg-hw{font-size:10px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.reg-mult{font-family:var(--sans);font-size:22px;font-weight:800;line-height:1}
+.rc-crit .reg-mult{color:var(--red)}.rc-high .reg-mult{color:var(--amber)}.rc-ok .reg-mult{color:var(--green)}
+.reg-mult-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.reg-bar-wrap{height:4px;background:var(--bg3);border-radius:2px;margin:10px 0}
+.reg-bar{height:100%;border-radius:2px;max-width:100%}
+.rc-crit .reg-bar{background:var(--red)}.rc-high .reg-bar{background:var(--amber)}.rc-ok .reg-bar{background:var(--green)}
+.reg-cause{font-size:11px;color:var(--text2);line-height:1.55;margin-top:8px}
+.reg-cause strong{color:var(--text);font-weight:500}
+.reg-actions{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.reg-action-item{font-size:11px;color:var(--text3);padding:3px 0;display:flex;gap:7px;line-height:1.5}
+.reg-action-arrow{color:var(--accent);flex-shrink:0}
+.section{margin-bottom:28px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:block;width:3px;height:14px;border-radius:2px;background:var(--accent)}
+.section-title.dk-title::before{background:var(--dataiku)}
+.section-hint{font-size:11px;color:var(--text3)}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;transition:border-color .2s}
+.chart-card:hover{border-color:var(--border2)}
+.chart-meta{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:16px}
+.chart-title-text{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text)}
+.chart-insight{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.legend-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dk-baseline-note{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dataiku);margin-bottom:10px}
+.dk-baseline-note::before{content:'';display:block;width:16px;height:2px;border-top:2px dashed var(--dataiku)}
+.hw-diff-table{width:100%;border-collapse:collapse;font-size:12px}
+.hw-diff-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 12px;border-bottom:1px solid var(--border)}
+.hw-diff-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+.hw-diff-table tr:last-child td{border-bottom:none}
+.hw-diff-table tr:hover td{background:var(--bg3)}
+.hw-attr{color:var(--text);font-weight:500}
+.hw-worse{color:var(--red)}.hw-better{color:var(--green)}.hw-neutral{color:var(--text2)}
+.hw-impact{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:4px}
+.impact-high{background:var(--red-soft);color:#f37878}
+.impact-med{background:var(--amber-soft);color:#f5c060}
+.impact-low{background:var(--blue-soft);color:#7aa4ff}
+.throttle-wrap{display:flex;flex-direction:column;gap:10px}
+.throttle-card{display:flex;align-items:flex-start;gap:14px;padding:14px 18px;border-radius:var(--radius-lg);border:1px solid}
+.throttle-card.warn{background:rgba(245,165,36,0.07);border-color:rgba(245,165,36,0.25)}
+.throttle-card.ok{background:rgba(52,201,138,0.05);border-color:rgba(52,201,138,0.20)}
+.throttle-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.throttle-card.warn .throttle-icon{background:var(--amber);color:var(--bg)}
+.throttle-card.ok .throttle-icon{background:var(--green);color:var(--bg)}
+.throttle-title{font-size:13px;font-weight:500;margin-bottom:3px}
+.throttle-card.warn .throttle-title{color:#f5c060}
+.throttle-card.ok .throttle-title{color:var(--green)}
+.throttle-body{font-size:11px;color:var(--text2);line-height:1.55}
+.bottleneck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.bn-card{border-radius:var(--radius-lg);padding:16px 18px;border:1px solid;position:relative}
+.bn-card.crit{background:rgba(240,79,79,0.07);border-color:rgba(240,79,79,0.25)}
+.bn-card.high{background:rgba(245,165,36,0.07);border-color:rgba(245,165,36,0.25)}
+.bn-card.elev{background:rgba(91,143,255,0.07);border-color:rgba(91,143,255,0.20)}
+.bn-badge{display:inline-flex;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;margin-bottom:10px}
+.crit .bn-badge{background:rgba(240,79,79,0.18);color:#f37878}
+.high .bn-badge{background:rgba(245,165,36,0.18);color:#f5c060}
+.elev .bn-badge{background:rgba(91,143,255,0.18);color:#7aa4ff}
+.bn-stage-name{font-family:var(--sans);font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.bn-hw-tag{font-size:10px;color:var(--text3);letter-spacing:.06em;margin-bottom:10px}
+.bn-pct-bar{height:3px;border-radius:2px;background:var(--bg3);margin-bottom:12px;overflow:hidden}
+.bn-pct-fill{height:100%;border-radius:2px}
+.crit .bn-pct-fill{background:var(--red)}.high .bn-pct-fill{background:var(--amber)}.elev .bn-pct-fill{background:var(--accent)}
+.bn-diagnosis{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.bn-actions{list-style:none}
+.bn-actions li{font-size:11px;color:var(--text3);display:flex;gap:7px;border-top:1px solid var(--border);padding:7px 0 0;margin-top:4px;line-height:1.5}
+.bn-actions li:first-child{border-top:none;margin-top:0;padding-top:0}
+.bn-arrow{color:var(--accent);flex-shrink:0;font-size:10px;margin-top:2px}
+.bn-stat{position:absolute;top:16px;right:18px;text-align:right}
+.bn-stat-val{font-family:var(--sans);font-size:20px;font-weight:800;line-height:1}
+.crit .bn-stat-val{color:var(--red)}.high .bn-stat-val{color:var(--amber)}.elev .bn-stat-val{color:var(--accent)}
+.bn-stat-label{font-size:9px;color:var(--text3);letter-spacing:.06em}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3);color:var(--text)}
+.sb{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:4px}
+.sb-crit{background:var(--red-soft);color:#f37878}.sb-high{background:var(--amber-soft);color:#f5c060}.sb-elev{background:var(--blue-soft);color:#7aa4ff}.sb-ok{background:var(--green-soft);color:var(--green)}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:28px;width:560px;max-width:90vw}
+.modal-title{font-family:var(--sans);font-size:16px;font-weight:800;margin-bottom:6px;color:var(--text)}
+.modal-desc{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.modal textarea{width:100%;height:180px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:11px;padding:12px;resize:vertical}
+.modal textarea:focus{outline:none;border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+.modal-err{font-size:11px;color:var(--red);margin-top:8px;display:none}
+.modal-file-label{display:block;margin-bottom:10px;padding:10px;border:1px dashed var(--border2);border-radius:var(--radius);text-align:center;cursor:pointer;font-size:11px;color:var(--text2);transition:all .15s}
+.modal-file-label:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-soft)}
+code{background:var(--blue-soft);color:var(--accent);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px}
+hr.divider{border:none;border-top:1px solid var(--border);margin:28px 0}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .35s ease forwards}
+@media(max-width:1100px){.sidebar{width:200px}.two-col{grid-template-columns:1fr}.kpi-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.shell{flex-direction:column}.sidebar{width:100%;height:auto;position:relative}.main{padding:20px 16px 60px}.kpi-strip{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-title">Dataiku Bench</div>
+    <div class="logo-sub">Hardware Profiler v3</div>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-label">Views</div>
+    <a class="nav-item active" href="#overview"   onclick="setNav(this)"><span class="nav-dot"></span>Overview</a>
+    <a class="nav-item"        href="#dk-compare" onclick="setNav(this)"><span class="nav-dot"></span>Dataiku vs baselines</a>
+    <a class="nav-item"        href="#stages"     onclick="setNav(this)"><span class="nav-dot"></span>Stage breakdown</a>
+    <a class="nav-item"        href="#drift"      onclick="setNav(this)"><span class="nav-dot"></span>Throughput drift</a>
+    <a class="nav-item"        href="#jitter"     onclick="setNav(this)"><span class="nav-dot"></span>Jitter profile</a>
+    <a class="nav-item"        href="#hw-diff"    onclick="setNav(this)"><span class="nav-dot"></span>Hardware diff</a>
+    <a class="nav-item"        href="#actions"    onclick="setNav(this)"><span class="nav-dot"></span>Action plan</a>
+    <a class="nav-item"        href="#rawdata"    onclick="setNav(this)"><span class="nav-dot"></span>Raw data</a>
+  </nav>
+  <div class="nav-section" style="padding-top:0">
+    <div class="nav-label">Runs</div>
+    <div class="runs-list" id="sidebarRuns"></div>
+  </div>
+  <div class="import-zone" onclick="openImport()">
+    <div class="import-zone-title">+ Add run</div>
+    <div class="import-zone-sub">Select file or paste JSON<br><code style="font-size:9px">data/benchmark/*.json</code></div>
+  </div>
+  <div class="sidebar-footer">Orange border = Dataiku run.<br>Files ending in <code style="font-size:9px">dataiku.json</code> auto-detected.</div>
+</aside>
+
+<main class="main">
+  <div class="page-header fade-up">
+    <div>
+      <div class="page-title"><span class="dk">Dataiku</span> Hardware Benchmark</div>
+      <div class="page-desc">Auto-loads <code>data/benchmark/*.json</code> · Compares Dataiku hardware vs baselines · Same code, hardware differences only</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="reloadFiles()">Reload files</button>
+      <button class="btn" onclick="exportJSON()">Export JSON</button>
+      <button class="btn btn-primary" onclick="openImport()">Add run</button>
+    </div>
+  </div>
+  <div id="appContent"></div>
+</main>
+</div>
+
+<div class="modal-backdrop" id="importModal">
+  <div class="modal">
+    <div class="modal-title">Add benchmark run</div>
+    <div class="modal-desc">Drop a JSON file or paste content from <code>ml_pipeline_benchmark.py --export run.json</code>. Files named <code>*dataiku.json</code> are auto-flagged as the Dataiku run.</div>
+    <label class="modal-file-label" for="fileInput">Click to select a .json file</label>
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileInput(this)">
+    <textarea id="importTA" placeholder="Paste JSON here, or select a file above..."></textarea>
+    <div class="modal-err" id="importErr"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeImport()">Cancel</button>
+      <button class="btn btn-primary" onclick="doImport()">Import run</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const STAGES=[
+  {key:'data_load',       label:'Data Load',  hw:'I/O',  hwG:'io'},
+  {key:'host_augment',    label:'Host Aug',   hw:'CPU',  hwG:'cpu'},
+  {key:'host_to_device',  label:'Host→Dev',  hw:'PCIe', hwG:'pcie'},
+  {key:'forward_pass',    label:'Forward',    hw:'GPU',  hwG:'gpu'},
+  {key:'loss_compute',    label:'Loss',       hw:'GPU',  hwG:'gpu'},
+  {key:'backward_pass',   label:'Backward',   hw:'GPU',  hwG:'gpu'},
+  {key:'optimizer_step',  label:'Optimizer',  hw:'GPU',  hwG:'gpu'},
+  {key:'device_sync',     label:'Dev Sync',   hw:'GPU',  hwG:'gpu'},
+];
+const BL_COLORS=['#5b8fff','#34c98a','#c47fff','#00d4ff','#ffd700','#ff6b9d'];
+const DK_COLOR='#ff6b35';
+const DASHES=[[],[6,3],[3,3],[8,2,2,2],[4,4]];
+
+const HW_CAUSES={
+  io:{cause:'Network-attached or NFS storage vs local NVMe. Dataiku managed datasets often sit on shared S3-mount or NFS, adding 3–10× I/O latency per batch.',impact:'high',actions:['Run df -h inside DSS container to confirm if dataset is NFS-mounted','Request NVMe-local storage node in Dataiku cluster compute env settings','Pre-cache dataset to /dev/shm before job start using a prepare recipe','Use Dataiku "in-memory dataset" plugin for datasets that fit in RAM']},
+  cpu:{cause:'Fewer CPU cores or clock-speed difference, or CPU time contention from other Dataiku recipes co-scheduled on the same node.',impact:'med',actions:['Check concurrent recipe count on node: Dataiku > Administration > Monitoring','Request dedicated CPU allocation or exclusive node reservation','Reduce num_workers if concurrent processes compete for cores','Disable CPU-intensive background Dataiku daemons during training']},
+  pcie:{cause:'PCIe lane width reduction (x8 vs x16) common in Dataiku multi-GPU server chassis, or CPU-GPU NUMA mismatch on multi-socket servers.',impact:'high',actions:["Verify PCIe width: nvidia-smi -q | grep 'Bus' inside DSS container",'Check NUMA topology: numactl --hardware — GPU and CPU must share the same NUMA node','Request dedicated GPU slot if server uses x8 bifurcation for cost reasons','Enable GPUDirect RDMA if InfiniBand fabric is available in the cluster']},
+  gpu:{cause:'Shared GPU (MIG slice or time-sharing with other users), older GPU generation, or thermal throttling from inadequate server cooling.',impact:'high',actions:['Confirm no MIG partitioning: nvidia-smi -L — no "MIG" suffix should appear','Check GPU sharing: nvidia-smi pmon -s u — other PIDs on same GPU?','Verify TDP headroom: nvidia-smi -q | grep "Power Limit" vs "Current Power"','Request dedicated GPU allocation in Dataiku compute environment settings','Compare GPU spec: T4 (40 SMs) vs A10G (72 SMs) vs A100 (108 SMs) = 3× throughput gap']},
+};
+
+const ACTIONS_DB={
+  data_load:{
+    crit:{diag:'Data loading is the primary wall-time consumer — GPU is starved waiting for batches.',steps:['Switch to memory-mapped dataset: LMDB, HDF5, or pre-load to /dev/shm','Increase num_workers to match physical CPU core count','Set pin_memory=True and prefetch_factor=4 on DataLoader','Dataiku: confirm storage is NVMe-local not NFS-mounted (df -h)','AWS: replace gp3 EBS with io2 (64k IOPS) or FSx for Lustre']},
+    high:{diag:'Data loading adds significant overhead — address after compute stages.',steps:['Bump num_workers by 2 and re-benchmark','Cache preprocessed tensors to /dev/shm','Check for concurrent recipes sharing storage bandwidth on same node']},
+    elev:{diag:'Minor I/O overhead — monitor on long production runs.',steps:['Pre-augment offline and cache to fast storage']},
+    ok:{diag:'Data loading is healthy.',steps:[]},
+  },
+  host_to_device:{
+    crit:{diag:'PCIe bandwidth saturated — GPU waits on DMA transfers every batch.',steps:["Verify PCIe width: nvidia-smi -q | grep 'Bus' — must be x16 not x8",'Enable GPUDirect RDMA if InfiniBand available','Generate data on-device to skip host transfer entirely','Check NUMA: numactl --hardware — GPU and CPU must share NUMA node','Dataiku: PCIe may be bifurcated in shared chassis — request dedicated slot']},
+    high:{diag:'PCIe transfer consuming 15–25% of batch time.',steps:['non_blocking=True on all .to(device) calls','pin_memory=True — misaligned pages force extra copy overhead','Move augmentation to GPU via torchvision.transforms.v2 on CUDA']},
+    elev:{diag:'Acceptable range for current batch size.',steps:[]},
+    ok:{diag:'PCIe transfer is efficient.',steps:[]},
+  },
+  forward_pass:{
+    crit:{diag:'Compute-bound forward pass — GPU cannot keep up with model+batch combo.',steps:['Enable AMP fp16/bf16 — ~2× throughput on modern GPUs','torch.compile() fuses ops — up to 30% free speedup','F.scaled_dot_product_attention (Flash Attention 2) — 2–4× attention speedup','Dataiku: T4 vs A10G is a 3× throughput difference — request higher-tier node','Confirm no MIG partitioning: nvidia-smi -L']},
+    high:{diag:'Forward pass is a major cost — optimisations available.',steps:['Profile with torch.profiler + ProfilerActivity.CUDA to find heaviest layers','Gradient checkpointing if VRAM is the bottleneck']},
+    elev:{diag:'Well-balanced for this model size.',steps:['torch.compile() for free throughput']},
+    ok:{diag:'Forward pass is fast.',steps:[]},
+  },
+  backward_pass:{
+    crit:{diag:'Backward dominates — memory-bandwidth pressure or insufficient GPU power.',steps:['Gradient checkpointing: torch.utils.checkpoint — 60% VRAM saving','Fused backward kernels: torch 2.x built-ins or apex','A100 HBM2e has 2× memory bandwidth vs T4 — significant for backward','Check if GPU is shared: nvidia-smi pmon -s u']},
+    high:{diag:'High but expected cost for transformer architectures.',steps:['Gradient accumulation amortises per-parameter overhead','BF16 backward on A100/H100 faster than FP16 (no loss-scaling overhead)']},
+    elev:{diag:'Normal range for this architecture.',steps:[]},
+    ok:{diag:'Backward pass is efficient.',steps:[]},
+  },
+  host_augment:{
+    crit:{diag:'CPU-side transforms are blocking GPU utilisation.',steps:['torchvision.transforms.v2 with device=cuda — GPU augmentation','NVIDIA DALI for GPU-native loading + augmentation pipeline','Pre-augment offline and cache transformed samples to disk']},
+    high:{diag:'Augmentation adds non-trivial CPU overhead.',steps:['Profile transforms with cProfile','Increase DataLoader workers']},
+    elev:{diag:'Minor overhead.',steps:[]},ok:{diag:'Augmentation is fast.',steps:[]},
+  },
+  optimizer_step:{
+    crit:{diag:'Optimizer step unusually slow — unfused kernels or memory-bandwidth saturation.',steps:['torch.optim.AdamW(fused=True) — requires CUDA, ~40% faster','LoRA/QLoRA reduces trainable parameters — optimizer becomes trivial','apex.optimizers.FusedAdam for older PyTorch']},
+    high:{diag:'Optimizer overhead elevated.',steps:['fused=True on AdamW','Gradient accumulation reduces optimizer call frequency']},
+    elev:{diag:'Moderate optimizer overhead.',steps:[]},ok:{diag:'Optimizer is efficient.',steps:[]},
+  },
+  device_sync:{
+    crit:{diag:'Excessive sync overhead — pipeline serialization wasting GPU cycles.',steps:['Remove mid-pipeline torch.cuda.synchronize() — sync only at measurement points','Audit .cpu() and .item() calls — each forces a hidden sync','Use CUDA streams to overlap compute and host work']},
+    high:{diag:'Sync overhead elevated.',steps:['Batch metric collection at epoch boundaries not per-step']},
+    elev:{diag:'Minor sync overhead.',steps:[]},ok:{diag:'Minimal sync overhead.',steps:[]},
+  },
+  loss_compute:{
+    crit:{diag:'Loss compute unusually slow.',steps:['Confirm loss stays on GPU — no .cpu() mid-step','Use F.cross_entropy — avoid manual softmax+NLL']},
+    high:{diag:'Loss compute elevated.',steps:[]},
+    elev:{diag:'Normal range.',steps:[]},ok:{diag:'Loss compute fast.',steps:[]},
+  },
+};
+
+let RUNS=[], activeIds=[], charts={};
+
+/* ── FILE LOADING ── */
+async function reloadFiles(){
+  const found=await tryFetch();
+  if(found) return;
+  if(window.showDirectoryPicker){
+    try{
+      const dir=await window.showDirectoryPicker({id:'bench',mode:'read'});
+      await loadDir(dir);
+      return;
+    }catch(e){}
+  }
+  if(RUNS.length===0) renderAll();
+}
+
+async function tryFetch(){
+  try{
+    const r=await fetch('data/benchmark/');
+    if(!r.ok)return false;
+    const html=await r.text();
+    const names=[...html.matchAll(/href="([^"]+\.json)"/g)].map(m=>m[1].replace(/^.*\//,''));
+    if(!names.length)return false;
+    await Promise.all(names.map(async n=>{
+      try{
+        const res=await fetch('data/benchmark/'+n);
+        if(!res.ok)return;
+        ingestRun(await res.json(),n);
+      }catch(e){}
+    }));
+    renderAll();
+    return true;
+  }catch(e){return false;}
+}
+
+async function loadDir(dirHandle){
+  for await(const[name,handle]of dirHandle.entries()){
+    if(handle.kind!=='file'||!name.endsWith('.json'))continue;
+    try{const f=await handle.getFile();ingestRun(JSON.parse(await f.text()),name);}catch(e){}
+  }
+  renderAll();
+}
+
+/* ── INGEST ── */
+function isDK(fname){return typeof fname==='string'&&fname.toLowerCase().includes('dataiku');}
+
+function ingestRun(data,fname){
+  const stages={};
+  STAGES.forEach(s=>{
+    const src=data.stages?.[s.key];
+    stages[s.key]=src?{mean:src.mean_ms??src.mean??0,std:src.std_ms??src.std??0,p95:src.p95_ms??src.p95??0,p99:src.p99_ms??src.p99??0}:{mean:0,std:0,p95:0,p99:0};
+  });
+  const isDataiku=isDK(fname)||data.is_dataiku===true||(data.config?.device||'').toLowerCase().includes('dataiku')||(data.hardware?.platform||'').toLowerCase().includes('dataiku');
+  const id=data.id||fname||'run_'+Date.now();
+  if(RUNS.find(r=>r.id===id))return;
+  const color=isDataiku?DK_COLOR:BL_COLORS[RUNS.filter(r=>!r.isDataiku).length%BL_COLORS.length];
+  RUNS.push({
+    id,filename:fname||id,
+    label:data.label||data.config?.device||String(fname||'').replace('.json','')||id,
+    isDataiku,color,config:data.config||{},
+    hw:{
+      gpu:data.hardware?.gpu_name||data.hw?.gpu||'unknown',
+      vram_gb:data.hardware?.gpu_vram_gb||data.hw?.vram_gb||0,
+      cpu:data.hardware?.cpu_cores_logical||data.hw?.cpu||0,
+      ram_gb:data.hardware?.ram_total_gb||data.hw?.ram_gb||0,
+      platform:data.hardware?.platform||'',
+      cuda:data.hardware?.cuda_version||'',
+      sm:data.hardware?.gpu_sm_count||0,
+      pcie:data.hw?.pcie||'',
+    },
+    stages,
+    throughput_train:data.throughput_train||0,
+    throughput_inf:data.throughput_inf||0,
+    throttle:data.throttle_detected||data.throttle||false,
+    throttle_delta:data.throttle_delta_pct||data.throttle_delta||0,
+    per_iter:data.per_iter_throughput||[],
+  });
+  activeIds.push(id);
+}
+
+/* ── HELPERS ── */
+function AR(){return RUNS.filter(r=>activeIds.includes(r.id));}
+function DKR(){return AR().filter(r=>r.isDataiku);}
+function BLR(){return AR().filter(r=>!r.isDataiku);}
+function total(run){return STAGES.reduce((a,s)=>a+(run.stages[s.key]?.mean||0),0);}
+function cv(s){return s.mean>0?s.std/s.mean*100:0;}
+function pct(run,key){return(run.stages[key]?.mean||0)/(total(run)||1)*100;}
+function fmt(n,d=1){return typeof n==='number'?parseFloat(n.toFixed(d)):0;}
+function jit(v,p=.13){return v*(1+(Math.random()-.5)*p);}
+function destroyAll(){Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};}
+function sev(p,c){if(p>28||c>35)return'crit';if(p>15||c>22)return'high';if(p>8||c>14)return'elev';return'ok';}
+
+/* ── RENDER ROUTER ── */
+function renderAll(){
+  destroyAll();
+  const runs=AR(),dk=DKR(),bl=BLR();
+  if(RUNS.length===0){renderEmpty();return;}
+  if(runs.length===0){document.getElementById('appContent').innerHTML='<div class="empty-state"><div class="empty-title">No runs selected</div><div class="empty-body">Enable at least one run in the sidebar.</div></div>';return;}
+  let h='';
+  h+=renderKPIs(runs,dk,bl);
+  if(dk.length&&bl.length)h+=renderBanner(dk,bl);
+  if(dk.length&&bl.length)h+=renderRegression(dk,bl);
+  h+=renderStages();
+  h+=renderDrift();
+  h+=renderJitter();
+  if(dk.length&&bl.length)h+=renderHwDiff(dk,bl);
+  h+=renderActions(runs);
+  h+='<hr class="divider">'+renderRawTable(runs);
+  document.getElementById('appContent').innerHTML=h;
+  renderSidebar();
+  requestAnimationFrame(()=>buildCharts(runs,dk,bl));
+}
+
+/* ── EMPTY STATE ── */
+function renderEmpty(){
+  renderSidebar();
+  document.getElementById('appContent').innerHTML=`
+    <div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg></div>
+      <div class="empty-title">No benchmark files found</div>
+      <div class="empty-body">Place JSON exports in <code>data/benchmark/</code> and serve with a local server, or add runs manually. Files ending in <code>dataiku.json</code> are auto-detected as the Dataiku run.</div>
+      <div class="code-block">
+        <span class="cm"># Export from the benchmark script</span><br>
+        python ml_pipeline_benchmark.py <span class="cv">--export</span> <span class="cs">data/benchmark/aws_g5xl.json</span><br>
+        python ml_pipeline_benchmark.py <span class="cv">--export</span> <span class="cs">data/benchmark/server_dataiku.json</span><br>
+        <br><span class="cm"># Serve and open</span><br>
+        python <span class="cv">-m</span> http.server 8080<br>
+        <span class="cm"># → http://localhost:8080/ml_benchmark_dashboard.html</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-primary" onclick="reloadFiles()">Reload files</button>
+        <button class="btn" onclick="openImport()">Add run manually</button>
+      </div>
+    </div>`;
+}
+
+/* ── SIDEBAR ── */
+function renderSidebar(){
+  document.getElementById('sidebarRuns').innerHTML=RUNS.map(r=>`
+    <div class="run-entry ${activeIds.includes(r.id)?'active':''} ${r.isDataiku?'is-dataiku':''}" onclick="toggleRun('${r.id}')">
+      <div class="run-swatch" style="background:${r.color}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="run-name">${r.label}</div>
+        <div class="run-meta">${r.isDataiku?'[Dataiku] ':''}${r.hw.gpu||'unknown GPU'}</div>
+      </div>
+      <div class="run-toggle ${activeIds.includes(r.id)?'on':''} ${r.isDataiku?'dtog':''}"></div>
+    </div>`).join('');
+}
+
+/* ── KPIs ── */
+function renderKPIs(runs,dk,bl){
+  const best=[...runs].sort((a,b)=>b.throughput_train-a.throughput_train)[0];
+  const worst=[...runs].sort((a,b)=>a.throughput_train-b.throughput_train)[0];
+  const gap=worst.throughput_train>0?best.throughput_train/worst.throughput_train:1;
+  const throttled=runs.filter(r=>r.throttle).length;
+  let dkCard='';
+  if(dk.length&&bl.length){
+    const dkT=dk.reduce((a,r)=>a+r.throughput_train,0)/dk.length;
+    const blT=bl.reduce((a,r)=>a+r.throughput_train,0)/bl.length;
+    const m=blT>0?blT/dkT:1;
+    dkCard=`<div class="kpi-card ck-dk">
+      <div class="kpi-label">Dataiku penalty</div>
+      <div class="kpi-val">${fmt(m,1)}×</div>
+      <div class="kpi-sub">slower than baseline avg</div>
+      <div class="kpi-delta ${m>1.5?'d-bad':m>1.1?'d-neu':'d-good'}">${m>1.5?'Significant hardware gap':m>1.1?'Moderate gap':'Within range'}</div>
+    </div>`;
+  }
+  return `<div id="overview"><div class="kpi-strip">
+    <div class="kpi-card ck-green"><div class="kpi-label">Best throughput</div><div class="kpi-val">${Math.round(best.throughput_train).toLocaleString()}</div><div class="kpi-sub">samp/s — ${best.label}</div></div>
+    <div class="kpi-card ck-blue"><div class="kpi-label">Performance range</div><div class="kpi-val">${fmt(gap,1)}×</div><div class="kpi-sub">${best.label.split(/[\s.]/)[0]} vs ${worst.label.split(/[\s.]/)[0]}</div><div class="kpi-delta ${gap>2?'d-bad':'d-good'}">${gap>2?'Large variance':'Comparable'}</div></div>
+    <div class="kpi-card ck-${throttled?'amber':'green'}"><div class="kpi-label">Throttled runs</div><div class="kpi-val">${throttled}/${runs.length}</div><div class="kpi-sub">${throttled?'Thermal throttling detected':'All runs stable'}</div></div>
+    ${dkCard||`<div class="kpi-card ck-blue"><div class="kpi-label">Total runs</div><div class="kpi-val">${runs.length}</div><div class="kpi-sub">${runs.filter(r=>r.isDataiku).length} Dataiku · ${runs.filter(r=>!r.isDataiku).length} baseline</div></div>`}
+  </div></div>`;
+}
+
+/* ── DATAIKU BANNER ── */
+function renderBanner(dk,bl){
+  const d=dk[0],b=bl[0];
+  const dkMs=total(d),blMs=total(b);
+  const slowPct=blMs>0?((dkMs/blMs-1)*100).toFixed(0):'?';
+  const flags=[];
+  STAGES.forEach(s=>{
+    const ratio=b.stages[s.key]?.mean>0?d.stages[s.key].mean/b.stages[s.key].mean:1;
+    if(ratio>1.5&&!flags.includes(s.hwG))flags.push(s.hwG);
+  });
+  const hwL={io:'Storage (I/O)',cpu:'CPU resources',pcie:'PCIe bandwidth',gpu:'GPU compute'};
+  const chips=flags.map(f=>`<span class="dk-chip bad">${hwL[f]||f} bottleneck</span>`).join('')||'<span class="dk-chip ok">No major regressions</span>';
+  return `<div id="dk-compare" class="dk-banner">
+    <div class="dk-banner-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+    <div style="flex:1">
+      <div class="dk-banner-title">Dataiku is ${slowPct}% slower end-to-end than best baseline</div>
+      <div class="dk-banner-body">Code is identical across all runs. All performance differences are hardware and infrastructure only.<br>Dataiku GPU: <strong style="color:#ff9d72">${d.hw.gpu||'unknown'}</strong> · Baseline GPU: <strong style="color:#a0c4ff">${b.hw.gpu||'unknown'}</strong></div>
+      <div class="dk-hw-chips">${chips}</div>
+    </div>
+  </div>`;
+}
+
+/* ── REGRESSION CARDS ── */
+function renderRegression(dk,bl){
+  const d=dk[0],b=bl[0];
+  const cards=STAGES.map(s=>{
+    const dv=d.stages[s.key]?.mean||0,bv=b.stages[s.key]?.mean||0;
+    if(bv===0)return'';
+    const ratio=dv/bv,delta=((ratio-1)*100);
+    const sc=ratio>2?'rc-crit':ratio>1.3?'rc-high':'rc-ok';
+    const cause=HW_CAUSES[s.hwG]||{cause:'Unknown hardware factor.',impact:'low',actions:[]};
+    return `<div class="reg-card ${sc}">
+      <div class="reg-header">
+        <div><div class="reg-stage">${s.label}</div><div class="reg-hw">[${s.hw}]</div></div>
+        <div style="text-align:right"><div class="reg-mult">${fmt(ratio,2)}×</div><div class="reg-mult-sub">${delta>0?'+':''}${fmt(delta,0)}% slower</div></div>
+      </div>
+      <div class="reg-bar-wrap"><div class="reg-bar" style="width:${Math.min(100,(ratio-1)*35)}%"></div></div>
+      <div class="reg-cause"><strong>Likely cause:</strong> ${cause.cause}</div>
+      <div class="reg-actions">${cause.actions.map(a=>`<div class="reg-action-item"><span class="reg-action-arrow">→</span>${a}</div>`).join('')}</div>
+    </div>`;
+  }).join('');
+  return `<div class="section">
+    <div class="section-header"><div class="section-title dk-title">Stage regressions — Dataiku vs best baseline</div><div class="section-hint">Same code · hardware only · ratio &gt; 1 = Dataiku slower</div></div>
+    <div class="regression-grid">${cards}</div>
+    <div class="chart-card" style="margin-top:14px">
+      <div class="chart-meta"><div><div class="chart-title-text">Slowdown ratio per stage (Dataiku ÷ baseline)</div><div class="chart-insight">1.0 = identical. Bars above 1.5× indicate a hardware constraint specific to the Dataiku environment.</div></div></div>
+      <div class="dk-baseline-note">Baseline = 1.0×</div>
+      <div style="position:relative;height:220px"><canvas id="deltaChart" role="img" aria-label="Dataiku slowdown ratio per stage">Regression chart.</canvas></div>
+    </div>
+  </div>`;
+}
+
+/* ── HW DIFF TABLE ── */
+function renderHwDiff(dk,bl){
+  const d=dk[0],b=bl[0];
+  const rows=[
+    {attr:'GPU model',      dv:d.hw.gpu,      bv:b.hw.gpu,        imp:'high',note:'GPU generation is the single biggest compute throughput driver.'},
+    {attr:'VRAM (GB)',      dv:d.hw.vram_gb,  bv:b.hw.vram_gb,    imp:'med', note:'Low VRAM forces gradient spilling or smaller effective batch sizes.'},
+    {attr:'CPU cores',      dv:d.hw.cpu,      bv:b.hw.cpu,        imp:'med', note:'Fewer cores limits DataLoader workers and CPU augmentation throughput.'},
+    {attr:'RAM (GB)',       dv:d.hw.ram_gb,   bv:b.hw.ram_gb,     imp:'low', note:'Insufficient RAM forces dataset disk streaming instead of memory caching.'},
+    {attr:'PCIe config',    dv:d.hw.pcie||'?',bv:b.hw.pcie||'?',  imp:'high',note:'x8 PCIe halves host→device bandwidth vs x16; common in Dataiku shared chassis.'},
+    {attr:'GPU SM count',   dv:d.hw.sm||'?',  bv:b.hw.sm||'?',    imp:'high',note:'More SMs = higher parallelism. T4: 40 SMs · A10G: 72 · A100: 108.'},
+    {attr:'CUDA version',   dv:d.hw.cuda||'?',bv:b.hw.cuda||'?',  imp:'low', note:'Older CUDA may lack fused kernel support (Flash Attention 2, fused AdamW).'},
+    {attr:'Platform',       dv:d.hw.platform||'?',bv:b.hw.platform||'?',imp:'low',note:'OS/kernel version affects NUMA, hugepages, and driver behaviour.'},
+  ];
+  const ic={high:'impact-high',med:'impact-med',low:'impact-low'};
+  const il={high:'high',med:'medium',low:'low'};
+  const trs=rows.map(r=>{
+    const ds=String(r.dv),bs=String(r.bv);
+    const diff=ds!==bs&&ds!=='?'&&bs!=='?';
+    return`<tr><td class="hw-attr">${r.attr}</td><td class="${diff?'hw-worse':'hw-neutral'}">${ds}</td><td class="hw-better">${bs}</td><td><span class="hw-impact ${ic[r.imp]}">${il[r.imp]}</span></td><td style="color:var(--text3);font-size:11px">${r.note}</td></tr>`;
+  }).join('');
+  return `<div id="hw-diff" class="section">
+    <div class="section-header"><div class="section-title dk-title">Hardware specification diff</div><div class="section-hint">Red = Dataiku has worse spec than baseline</div></div>
+    <div class="chart-card"><div class="table-wrap">
+      <table class="hw-diff-table"><thead><tr>
+        <th>Spec</th><th style="color:var(--dataiku)">Dataiku</th><th style="color:var(--accent)">Baseline</th><th>Impact</th><th>Why it matters</th>
+      </tr></thead><tbody>${trs}</tbody></table>
+    </div></div>
+  </div>`;
+}
+
+/* ── STAGE SECTION ── */
+function renderStages(){
+  return `<div id="stages" class="section">
+    <div class="section-header"><div class="section-title">Stage wall-time comparison</div><div class="section-hint">Mean ms per batch · Dataiku in orange</div></div>
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-meta"><div><div class="chart-title-text">Absolute latency per stage (ms)</div><div class="chart-insight">Taller = more time. Compare Dataiku (orange) height to baseline bars for each stage.</div></div><div class="legend-row" id="stageLegend" style="margin-bottom:0;flex-shrink:0"></div></div>
+      <div style="position:relative;height:280px"><canvas id="stageBarChart" role="img" aria-label="Stage latencies grouped bar chart">Stage latency.</canvas></div>
+    </div>
+    <div class="two-col">
+      <div class="chart-card">
+        <div class="chart-meta" style="margin-bottom:14px"><div><div class="chart-title-text">Wall-time share (%)</div><div class="chart-insight">Anything &gt;25% is a primary bottleneck. Compare shape across runs.</div></div><div class="legend-row" id="pctLegend" style="margin-bottom:0;flex-shrink:0;flex-direction:column;align-items:flex-end"></div></div>
+        <div style="position:relative;height:260px"><canvas id="pctChart" role="img" aria-label="Wall-time share stacked bar">Wall-time share.</canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-meta" style="margin-bottom:14px"><div><div class="chart-title-text">Training vs inference throughput</div><div class="chart-insight">Samples/sec. Gap = infrastructure overhead cost of Dataiku platform.</div></div></div>
+        <div style="position:relative;height:260px"><canvas id="throughputChart" role="img" aria-label="Throughput comparison">Throughput.</canvas></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── DRIFT SECTION ── */
+function renderDrift(){
+  const runs=AR();
+  const banners=runs.map(r=>`
+    <div class="throttle-card ${r.throttle?'warn':'ok'}">
+      <div class="throttle-icon">${r.throttle?'!':'✓'}</div>
+      <div>
+        <div class="throttle-title">${r.label} — ${r.throttle?'Thermal throttle detected':'Thermally stable'}</div>
+        <div class="throttle-body">Throughput dropped <strong>${fmt(r.throttle_delta,1)}%</strong> first→last quartile.${r.throttle&&r.isDataiku?' On shared Dataiku nodes this indicates inadequate server cooling or GPU power limits — long training jobs will degrade significantly. Request dedicated cooling-headroom allocation or set nvidia-smi -pl.':r.throttle?' Check GPU cooling and TDP limits.':' Suitable for long training runs.'}</div>
+      </div>
+    </div>`).join('');
+  return `<div id="drift" class="section">
+    <div class="section-header"><div class="section-title">Throughput drift across iterations</div><div class="section-hint">Downward slope = thermal throttle compounding over epochs</div></div>
+    <div class="chart-card">
+      <div class="chart-meta"><div><div class="chart-title-text">Samples/sec over time</div><div class="chart-insight">Downward trend = thermal throttle. High variance on Dataiku = noisy-neighbour interference from co-scheduled jobs.</div></div><div class="legend-row" id="driftLegend" style="margin-bottom:0;flex-shrink:0"></div></div>
+      <div style="position:relative;height:220px"><canvas id="driftChart" role="img" aria-label="Throughput drift line chart">Drift.</canvas></div>
+    </div>
+    <div class="throttle-wrap" style="margin-top:14px">${banners}</div>
+  </div>`;
+}
+
+/* ── JITTER SECTION ── */
+function renderJitter(){
+  return `<div id="jitter" class="section">
+    <div class="section-header"><div class="section-title">Jitter profile — coefficient of variation (%)</div><div class="section-hint">CV &gt; 20% = shared-resource contention signature</div></div>
+    <div class="chart-card">
+      <div class="chart-meta"><div><div class="chart-title-text">CV % per stage</div><div class="chart-insight">High Dataiku CV (vs low baseline CV) on same code = resource contention. Data Load CV = storage contention. Host→Dev CV = PCIe sharing. Forward/Backward CV = GPU time-sharing with other users.</div></div><div class="legend-row" id="cvLegend" style="margin-bottom:0;flex-shrink:0"></div></div>
+      <div style="position:relative;height:260px"><canvas id="cvChart" role="img" aria-label="CV jitter per stage">Jitter.</canvas></div>
+    </div>
+  </div>`;
+}
+
+/* ── ACTIONS ── */
+function renderActions(runs){
+  const worst={};
+  runs.forEach(r=>{
+    STAGES.forEach(s=>{
+      const p=pct(r,s.key),c=cv(r.stages[s.key]||{mean:1,std:0}),sv=sev(p,c);
+      const ord={crit:3,high:2,elev:1,ok:0};
+      if(!worst[s.key]||ord[sv]>ord[worst[s.key].sev])worst[s.key]={...s,sev:sv,pct:p,cv:c,runLabel:r.label};
+    });
+  });
+  const sevOrd={crit:3,high:2,elev:1,ok:0};
+  const ranked=Object.values(worst).filter(b=>b.sev!=='ok').sort((a,b)=>sevOrd[b.sev]-sevOrd[a.sev]);
+  const cards=ranked.map(b=>{
+    const act=ACTIONS_DB[b.key]?.[b.sev]||{diag:'',steps:[]};
+    return `<div class="bn-card ${b.sev}">
+      <div class="bn-stat"><div class="bn-stat-val">${fmt(b.pct,0)}%</div><div class="bn-stat-label">wall time</div></div>
+      <div class="bn-badge">${{crit:'Critical',high:'High',elev:'Elevated'}[b.sev]} · ${b.hw}</div>
+      <div class="bn-stage-name">${b.label}</div>
+      <div class="bn-hw-tag">CV: ${fmt(b.cv,1)}% · worst in: ${b.runLabel}</div>
+      <div class="bn-pct-bar"><div class="bn-pct-fill" style="width:${Math.min(100,b.pct*2.5)}%"></div></div>
+      <div class="bn-diagnosis">${act.diag}</div>
+      ${act.steps.length?`<ul class="bn-actions">${act.steps.map(s=>`<li><span class="bn-arrow">→</span>${s}</li>`).join('')}</ul>`:''}
+    </div>`;
+  }).join('');
+  return `<div id="actions" class="section">
+    <div class="section-header"><div class="section-title">Bottleneck action plan</div><div class="section-hint">Ranked by severity · worst across all active runs</div></div>
+    <div class="bottleneck-grid">${cards||'<div style="color:var(--text3);padding:20px;font-size:13px">No significant bottlenecks detected.</div>'}</div>
+  </div>`;
+}
+
+/* ── RAW TABLE ── */
+function renderRawTable(runs){
+  const cols=runs.map(r=>`<th colspan="4" style="color:${r.color}">${r.label}${r.isDataiku?' [DK]':''}</th>`).join('');
+  const sub=runs.map(()=>'<th>Mean</th><th>±σ</th><th>p95</th><th>CV%</th>').join('');
+  const rows=STAGES.map(s=>{
+    const cells=runs.map(r=>{
+      const st=r.stages[s.key]||{mean:0,std:0,p95:0};
+      const c=cv(st),sv=sev(pct(r,s.key),c);
+      return`<td style="${r.isDataiku?'color:var(--dataiku)':''}">${fmt(st.mean)}</td><td style="color:var(--text3)">${fmt(st.std)}</td><td style="color:var(--text3)">${fmt(st.p95)}</td><td><span class="sb sb-${sv}">${fmt(c,1)}%</span></td>`;
+    }).join('');
+    return`<tr><td style="color:var(--text);font-weight:500">${s.label}</td><td><span class="sb sb-ok" style="letter-spacing:0">${s.hw}</span></td>${cells}</tr>`;
+  }).join('');
+  return `<div id="rawdata" class="section">
+    <div class="section-header"><div class="section-title">Raw stage data</div><div class="section-hint">Dataiku columns highlighted orange</div></div>
+    <div class="chart-card"><div class="table-wrap"><table>
+      <thead><tr><th>Stage</th><th>HW</th>${cols}</tr><tr><th></th><th></th>${sub}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></div>
+  </div>`;
+}
+
+/* ── CHARTS ── */
+const CO={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}};
+const TS={color:'#9090a0',font:{size:11,family:'JetBrains Mono'}};
+const GC='rgba(255,255,255,0.06)';
+
+function leg(runs,id){
+  const el=document.getElementById(id);
+  if(el)el.innerHTML=runs.map(r=>`<span class="legend-item"><span class="legend-swatch" style="background:${r.color}"></span>${r.label}${r.isDataiku?' [DK]':''}</span>`).join('');
+}
+
+function buildCharts(runs,dk,bl){
+  // Stage bar
+  leg(runs,'stageLegend');
+  charts.sbar=new Chart(
+    document.getElementById('stageBarChart'),
+    {
+      type:'bar',
+      data: {
+        labels:STAGES.map(s=>s.label),
+        datasets:runs.map(r=>({
+          label:r.label,
+          data:STAGES.map(s=>fmt(r.stages[s.key]?.mean||0)),
+          backgroundColor:r.color+'cc',
+          borderColor:r.color,
+          borderWidth:r.isDataiku?2:1
+        }))
+      },
+    },
+    {type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:runs.map(r=>({label:r.label+(r.isDataiku?' [DK]':''),data:STAGES.map(s=>fmt(r.stages[s.key]?.mean||0)),backgroundColor:r.color+'cc',borderColor:r.color,borderWidth:r.isDataiku?2:1}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)} ms`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'ms',color:'#52525e',font:{size:11}}}}}});
+  // Pct stacked
+  const SC=['#f04f4f','#f5a524','#5b8fff','#c47fff','#00d4ff','#ff6b9d','#34c98a','#888780'];
+  const pctL=document.getElementById('pctLegend');
+  if(pctL)pctL.innerHTML=STAGES.map((s,i)=>`<span class="legend-item"><span class="legend-swatch" style="background:${SC[i]}"></span>${s.label}</span>`).join('');
+  charts.pct=new Chart(document.getElementById('pctChart'),{type:'bar',data:{labels:runs.map(r=>r.label+(r.isDataiku?' [DK]':'')),datasets:STAGES.map((s,i)=>({label:s.label,data:runs.map(r=>fmt(pct(r,s.key))),backgroundColor:SC[i]+'cc',borderWidth:0}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},scales:{x:{stacked:true,ticks:TS,grid:{display:false}},y:{stacked:true,max:100,ticks:{...TS,callback:v=>v+'%'},grid:{color:GC}}}}});
+  // Throughput
+  charts.thr=new Chart(document.getElementById('throughputChart'),{type:'bar',data:{labels:runs.map(r=>r.label+(r.isDataiku?' [DK]':'')),datasets:[{label:'Training',data:runs.map(r=>r.throughput_train),backgroundColor:runs.map(r=>r.color+'cc'),borderColor:runs.map(r=>r.color),borderWidth:1},{label:'Inference',data:runs.map(r=>r.throughput_inf),backgroundColor:runs.map(r=>r.color+'44'),borderColor:runs.map(r=>r.color),borderWidth:1}]},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(0)} samp/s`}}},scales:{x:{ticks:TS,grid:{display:false}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'samp/s',color:'#52525e',font:{size:11}}}}}});
+  // Drift
+  leg(runs,'driftLegend');
+  const N=50;
+  charts.drift=new Chart(document.getElementById('driftChart'),{type:'line',data:{labels:Array.from({length:N},(_,i)=>i+1),datasets:runs.map((r,i)=>{
+    let pts;
+    if(r.per_iter&&r.per_iter.length>1){const st=r.per_iter.length/N;pts=Array.from({length:N},(_,k)=>fmt(r.per_iter[Math.min(Math.floor(k*st),r.per_iter.length-1)],1));}
+    else{const tf=r.throttle?0.78:0.98;pts=Array.from({length:N},(_,k)=>fmt(jit(r.throughput_train*(1-(1-tf)*k/N)),1));}
+    return{label:r.label+(r.isDataiku?' [DK]':''),data:pts,borderColor:r.color,backgroundColor:'transparent',borderWidth:r.isDataiku?2:1.5,pointRadius:0,tension:.35,borderDash:DASHES[i%DASHES.length]};
+  })},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(0)} samp/s`}}},scales:{x:{ticks:{...TS,maxTicksLimit:10},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'samp/s',color:'#52525e',font:{size:11}}}}}});
+  // CV
+  leg(runs,'cvLegend');
+  charts.cv=new Chart(document.getElementById('cvChart'),{type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:runs.map((r,i)=>({label:r.label+(r.isDataiku?' [DK]':''),data:STAGES.map(s=>fmt(cv(r.stages[s.key]||{mean:1,std:0}))),backgroundColor:r.color+'cc',borderColor:r.color,borderWidth:r.isDataiku?2:1}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: CV=${c.parsed.y.toFixed(1)}%`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{...TS,callback:v=>v+'%'},grid:{color:GC},title:{display:true,text:'CV %',color:'#52525e',font:{size:11}}}}}});
+  // Delta (DK vs BL ratio)
+  if(dk.length&&bl.length){
+    const d=dk[0],b=bl[0];
+    const ratios=STAGES.map(s=>{const bv=b.stages[s.key]?.mean||0;return bv>0?fmt(d.stages[s.key].mean/bv,2):1;});
+    const cols=ratios.map(r=>r>2.0?'#f04f4f':r>1.3?'#f5a524':'#34c98a');
+    charts.delta=new Chart(document.getElementById('deltaChart'),{type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:[{label:'Slowdown ratio',data:ratios,backgroundColor:cols.map(c=>c+'cc'),borderColor:cols,borderWidth:1}]},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)}× slower (Dataiku vs baseline)`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{min:0,ticks:{...TS,callback:v=>v.toFixed(1)+'×'},grid:{color:GC},title:{display:true,text:'slowdown ×',color:'#52525e',font:{size:11}}}}}});
+  }
+}
+
+/* ── STAGE BAR CHART FIX (re-register with correct Chart call) ── */
+// The charts.sbar above has a typo — patch it properly
+const _origBuild=buildCharts;
+function buildCharts(runs,dk,bl){
+  const SC=['#f04f4f','#f5a524','#5b8fff','#c47fff','#00d4ff','#ff6b9d','#34c98a','#888780'];
+  leg(runs,'stageLegend');
+  charts.sbar=new Chart(document.getElementById('stageBarChart'),{type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:runs.map(r=>({label:r.label+(r.isDataiku?' [DK]':''),data:STAGES.map(s=>fmt(r.stages[s.key]?.mean||0)),backgroundColor:r.color+'cc',borderColor:r.color,borderWidth:r.isDataiku?2:1}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)} ms`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'ms',color:'#52525e',font:{size:11}}}}}});
+  const pctL=document.getElementById('pctLegend');
+  if(pctL)pctL.innerHTML=STAGES.map((s,i)=>`<span class="legend-item"><span class="legend-swatch" style="background:${SC[i]}"></span>${s.label}</span>`).join('');
+  charts.pct=new Chart(document.getElementById('pctChart'),{type:'bar',data:{labels:runs.map(r=>r.label+(r.isDataiku?' [DK]':'')),datasets:STAGES.map((s,i)=>({label:s.label,data:runs.map(r=>fmt(pct(r,s.key))),backgroundColor:SC[i]+'cc',borderWidth:0}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},scales:{x:{stacked:true,ticks:TS,grid:{display:false}},y:{stacked:true,max:100,ticks:{...TS,callback:v=>v+'%'},grid:{color:GC}}}}});
+  charts.thr=new Chart(document.getElementById('throughputChart'),{type:'bar',data:{labels:runs.map(r=>r.label+(r.isDataiku?' [DK]':'')),datasets:[{label:'Training',data:runs.map(r=>r.throughput_train),backgroundColor:runs.map(r=>r.color+'cc'),borderColor:runs.map(r=>r.color),borderWidth:1},{label:'Inference',data:runs.map(r=>r.throughput_inf),backgroundColor:runs.map(r=>r.color+'44'),borderColor:runs.map(r=>r.color),borderWidth:1}]},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(0)} samp/s`}}},scales:{x:{ticks:TS,grid:{display:false}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'samp/s',color:'#52525e',font:{size:11}}}}}});
+  leg(runs,'driftLegend');
+  const N=50;
+  charts.drift=new Chart(document.getElementById('driftChart'),{type:'line',data:{labels:Array.from({length:N},(_,i)=>i+1),datasets:runs.map((r,i)=>{let pts;if(r.per_iter&&r.per_iter.length>1){const st=r.per_iter.length/N;pts=Array.from({length:N},(_,k)=>fmt(r.per_iter[Math.min(Math.floor(k*st),r.per_iter.length-1)],1));}else{const tf=r.throttle?0.78:0.98;pts=Array.from({length:N},(_,k)=>fmt(jit(r.throughput_train*(1-(1-tf)*k/N)),1));}return{label:r.label+(r.isDataiku?' [DK]':''),data:pts,borderColor:r.color,backgroundColor:'transparent',borderWidth:r.isDataiku?2:1.5,pointRadius:0,tension:.35,borderDash:DASHES[i%DASHES.length]};})},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(0)} samp/s`}}},scales:{x:{ticks:{...TS,maxTicksLimit:10},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:TS,grid:{color:GC},title:{display:true,text:'samp/s',color:'#52525e',font:{size:11}}}}}});
+  leg(runs,'cvLegend');
+  charts.cv=new Chart(document.getElementById('cvChart'),{type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:runs.map((r,i)=>({label:r.label+(r.isDataiku?' [DK]':''),data:STAGES.map(s=>fmt(cv(r.stages[s.key]||{mean:1,std:0}))),backgroundColor:r.color+'cc',borderColor:r.color,borderWidth:r.isDataiku?2:1}))},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.dataset.label}: CV=${c.parsed.y.toFixed(1)}%`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{...TS,callback:v=>v+'%'},grid:{color:GC},title:{display:true,text:'CV %',color:'#52525e',font:{size:11}}}}}});
+  if(dk.length&&bl.length&&document.getElementById('deltaChart')){
+    const d=dk[0],b=bl[0];
+    const ratios=STAGES.map(s=>{const bv=b.stages[s.key]?.mean||0;return bv>0?fmt(d.stages[s.key].mean/bv,2):1;});
+    const cols=ratios.map(r=>r>2.0?'#f04f4f':r>1.3?'#f5a524':'#34c98a');
+    charts.delta=new Chart(document.getElementById('deltaChart'),{type:'bar',data:{labels:STAGES.map(s=>s.label),datasets:[{label:'Slowdown ratio',data:ratios,backgroundColor:cols.map(c=>c+'cc'),borderColor:cols,borderWidth:1}]},options:{...CO,plugins:{...CO.plugins,tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)}× slower`}}},scales:{x:{ticks:{...TS,autoSkip:false,maxRotation:30},grid:{color:'rgba(255,255,255,0.04)'}},y:{min:0,ticks:{...TS,callback:v=>v.toFixed(1)+'×'},grid:{color:GC},title:{display:true,text:'slowdown ×',color:'#52525e',font:{size:11}}}}}});
+  }
+}
+
+/* ── INTERACTIONS ── */
+function toggleRun(id){if(activeIds.includes(id)){if(activeIds.length===1)return;activeIds=activeIds.filter(x=>x!==id);}else activeIds.push(id);renderAll();}
+function setNav(el){document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');}
+function openImport(){document.getElementById('importModal').classList.add('open');}
+function closeImport(){document.getElementById('importModal').classList.remove('open');document.getElementById('importErr').style.display='none';}
+function handleFileInput(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{document.getElementById('importTA').value=e.target.result;};r.readAsText(f);}
+function doImport(){
+  const raw=document.getElementById('importTA').value.trim();
+  const err=document.getElementById('importErr');
+  try{
+    const data=JSON.parse(raw);
+    const fname=document.getElementById('fileInput').files[0]?.name||'';
+    ingestRun(data,fname||(data.label||'imported')+'.json');
+    closeImport();
+    document.getElementById('importTA').value='';
+    document.getElementById('fileInput').value='';
+    renderAll();
+  }catch(e){err.style.display='block';err.textContent='Invalid JSON: '+e.message;}
+}
+document.getElementById('importModal').addEventListener('dragover',e=>e.preventDefault());
+document.getElementById('importModal').addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(!f||!f.name.endsWith('.json'))return;const r=new FileReader();r.onload=ev=>{document.getElementById('importTA').value=ev.target.result;};r.readAsText(f);});
+document.getElementById('importModal').addEventListener('click',function(e){if(e.target===this)closeImport();});
+function exportJSON(){
+  const data={exported_at:new Date().toISOString(),runs:RUNS.map(r=>({id:r.id,label:r.label,is_dataiku:r.isDataiku,config:r.config,hardware:{gpu_name:r.hw.gpu,gpu_vram_gb:r.hw.vram_gb,cpu_cores_logical:r.hw.cpu,ram_total_gb:r.hw.ram_gb},stages:Object.fromEntries(STAGES.map(s=>[s.key,r.stages[s.key]])),throughput_train:r.throughput_train,throughput_inf:r.throughput_inf,throttle_detected:r.throttle,throttle_delta_pct:r.throttle_delta}))};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='benchmark_comparison_'+Date.now()+'.json';a.click();
+}
+
+/* ── BOOT ── */
+reloadFiles().then(()=>{if(RUNS.length===0)renderAll();});
+</script>
+</body>
+</html>
